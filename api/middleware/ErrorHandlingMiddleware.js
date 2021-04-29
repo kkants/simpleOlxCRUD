@@ -1,8 +1,17 @@
-const ApiError = require('../error/ApiError');
+function errorMiddleware(error, req, res, next) {
+  let { status = 500, message, data } = error;
 
-module.exports = function (err, req, res, next) {
-  if (err instanceof ApiError) {
-    return res.status(err.status).json({ message: err.message });
-  }
-  return res.status(404).json({ message: 'Endpoint Not Found!' });
-};
+  console.log(`[Error] ${error}`);
+  message = status === 500 || !message ? 'Something wrong' : message;
+
+  error = {
+    type: 'error',
+    status,
+    message,
+    ...(data && data),
+  };
+
+  res.status(status).send(message);
+}
+
+module.exports = errorMiddleware;

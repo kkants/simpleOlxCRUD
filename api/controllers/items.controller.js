@@ -1,145 +1,191 @@
-const pool = require('../../config/database');
-const ApiError = require('../error/ApiError');
+const HttpException = require('../utils/HttpException.utils');
+const ItemModel = require('../models/item.model');
+const { validationResult } = require('express-validator');
 const uuid = require('uuid');
 const path = require('path');
-const infoPool = require('../utils/infoPool.utils');
+const multer = require('multer');
 
 class ItemsController {
   async createItem(req, res, next) {
-    try {
-      const { title, price } = req.body;
-      const { img } = req.files;
-
-      console.log(img);
-      console.log(title, price, user_id);
-      let timestamp = Date.now();
-      const created_at = Math.floor(timestamp / 1000);
-      console.log(created_at);
-      let fileName = uuid.v4() + '.jpg';
-      img.mv(path.resolve(__dirname, '..', 'static', fileName));
-      console.log(fileName);
-      console.log('00000000000000000000000000000000000000');
-      pool.query(
-        `INSERT INTO items (title, price, user_id, img, created_at) values (?,?,?,?,?)`,
-        [title, price, user_id, fileName, created_at],
-        function (err, data) {
-          if (err) return console.log(err);
-          res.json({});
-          console.log(data);
-        }
-      );
-    } catch (e) {
-      console.log(e);
-      return next(
-        ApiError.UnprocessableEntity({
-          field: 'title',
-          message: 'Title is required',
-          error: e,
-        })
-      );
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      next(new HttpException(422, { message: 'Validation failed!', errors }));
+      return;
     }
+    const { title, price } = req.body;
+    let timestamp = Date.now();
+    const created_at = Math.floor(timestamp / 1000);
+    const result = await ItemModel.create(
+      title,
+      price,
+      req.currentUser.id,
+      created_at
+    );
+    if (!result) {
+      next(HttpException(422, 'Something wrong'));
+      return;
+    }
+    const findId = await ItemModel.findOne({ created_at: created_at });
+    return res.json({
+      id: findId.item_id,
+      created_at: created_at,
+      title: title,
+      price: price,
+      image: 'http://localhost:5000/' + 'some.jpg',
+      user_id: req.currentUser.id,
+      user: {
+        id: req.currentUser.id,
+        name: req.currentUser.name,
+        email: req.currentUser.email,
+      },
+    });
   }
 
   async getItems(req, res, next) {
-    try {
-      pool.query('SELECT * FROM items', function (err, data) {
-        if (err) return console.log(err);
-        res.json(data);
-      });
-    } catch (e) {
-      console.log(e);
-      return next(
-        ApiError.badRequest({
-          error: e,
-        })
-      );
+    let itemsList = await ItemModel.find();
+    if (!itemsList.length) {
+      next(HttpException(404, 'Items not found'));
+      return;
     }
+
+    itemsList = itemsList.map((item) => {
+      const { password, ...rest } = item;
+      return rest;
+    });
+    res.json(itemsList);
+  }
+  async getItemById(req, res, next) {
+    const item = await ItemModel.findOne({ item_id: req.params.id });
+    if (!item) {
+      next(new HttpException(404, 'Item not found'));
+      return;
+    }
+    res.json({
+      id: item.item_id,
+      created_at: item.created_at,
+      title: item.title,
+      price: item.price,
+      image: 'http://localhost:5000/' + 'some.jpg',
+      user_id: item.user_id,
+      user: {
+        id: item.id,
+        name: item.name,
+        email: item.email,
+      },
+    });
   }
 
-  async getItemById(req, res, next) {
-    try {
-      const _id = req.params.id;
-      if (!_id) return next(ApiError.badRequest('wrong id'));
-      await infoPool(_id, req, res, next);
-    } catch (e) {
-      console.log(e);
-      return next(
-        ApiError.badRequest({
-          error: e,
-        })
-      );
+  async updateItemById(req, res, next) {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      next(new HttpException(422, { message: 'Validation failed!', errors }));
+      return;
     }
-  }
-  async updateItemById(req, res) {
-    try {
-      const _id = req.params.id;
-      const { title, price } = req.body;
-      if (!_id) return next(new ApiError.badRequest('id is empty'));
-      if (title.length < 3)
-        return next(
-          new ApiError.UnprocessableEntity({
-            field: 'title',
-            message: 'Title should contain at least 3 characters',
-          })
-        );
-      pool.query(
-        'UPDATE items set title =?, price =? WHERE id=?',
-        [title, price, _id],
-        function (err, data) {
-          if (err) return console.log(err);
-          if (data.length == 0) {
-            return next(ApiError.NotFound('NOT FOUND'));
-          }
-          pool.query(
-            `SELECT * FROM items JOIN user ON items.user_id=user.id WHERE items.id=?`,
-            [_id],
-            function (err, data) {
-              if (err) return console.log(err);
-              if (data.length == 0) {
-                return next(ApiError.NotFound('NOT FOUND'));
-              }
-              console.log(data[0]);
-              res.json({
-                id: data[0].id,
-                created_at: data[0].created_at,
-                price: data[0].price,
-                image: data[0].img,
-                user_id: data[0].user_id,
-                user: {
-                  id: data[0].user_id,
-                  name: data[0].name,
-                  password: data[0].password,
-                  email: data[0].email,
-                },
-              });
-            }
-          );
-        }
-      );
-    } catch (e) {
-      console.log(e);
-      next(ApiError.NotFound());
+    const { title, price } = req.body;
+
+    const item = await ItemModel.findOne({ item_id: req.params.id });
+    if (!item) {
+      next(new HttpException(404, 'item not found'));
+      return;
     }
-  }
-  async deleteItemById(req, res) {
-    try {
-      const _id = req.params.id;
-      if (!_id) return next(ApiError.badRequest('wrong id'));
-      pool.query(' DELETE FROM items where id =?', [_id], function (err, data) {
-        if (err) return next(ApiError.Internal(''));
-        if (data.length == 0) {
-          return next(ApiError.NotFound('NOT FOUND'));
-        }
-      });
-    } catch (e) {
-      return next(
-        ApiError.badRequest({
-          error: e,
-        })
-      );
+    ////check on ownerAuthorized
+
+    if (req.currentUser.id != item.user_id) {
+      next(new HttpException(403, 'U have no access to do this'));
+      return;
     }
+    const result = await ItemModel.update(req.body, req.params.id);
+    if (!result) {
+      next(new HttpException(404, 'Item not found'));
+      return;
+    }
+    const { affectedRows, changedRows } = result;
+    const message = !affectedRows
+      ? 'User not found'
+      : affectedRows && changedRows
+      ? 'User updated successfully'
+      : 'Updated failed';
+    if (message == 'Updated failed') {
+      next(
+        new HttpException(
+          422,
+          'Change something, thise title and price already exist'
+        )
+      );
+      return;
+    }
+    return res.json({
+      message,
+      id: item.item_id,
+      created_at: item.created_at,
+      title: title,
+      price: price,
+      image: 'http://localhost:5000/' + item.img,
+      user_id: item.user_id,
+      user: {
+        id: item.id,
+        name: item.name,
+        email: item.email,
+      },
+    });
   }
-  async addItemImgbyId(req, res) {}
+
+  async deleteItemById(req, res, next) {
+    ////check on ownerAuthorized
+
+    if (req.currentUser.id != item.user_id) {
+      next(new HttpException(403, 'U have no access to do this'));
+      return;
+    }
+    const result = await ItemModel.delete(req.params.id);
+    if (!result) {
+      next(new HttpException(404, 'Item not found'));
+      return;
+    }
+    if (req.currentUser.id != item.user_id) {
+      next(new HttpException(403, 'U have no access to do this'));
+      return;
+    }
+    return res.json('Item has been deleted');
+  }
+
+  async addItemImgbyId(req, res, next) {
+    const itemId = req.params.id;
+    const { img } = req.files;
+    let fileName = uuid.v4() + '.jpg';
+    img.mv(path.resolve(__dirname, '..', 'static', fileName));
+
+    const item = await ItemModel.findOne({ item_id: itemId });
+    if (!item) {
+      next(new HttpException(404, 'item not found'));
+      return;
+    }
+    ////check on ownerAuthorized
+    if (req.currentUser.id != item.user_id) {
+      next(new HttpException(403, 'U have no access to do this'));
+      return;
+    }
+
+    const addImage = await ItemModel.addImg(itemId, fileName);
+    if (!addImage) {
+      next(new HttpException(404, 'Item not found'));
+      return;
+    }
+
+    return res.json({
+      id: itemId,
+      created_at: item.created_at,
+      title: item.title,
+      price: item.price,
+      image: 'http://localhost:5000/' + item.img,
+      user_id: item.user_id,
+      user: {
+        id: item.id,
+        name: item.name,
+        email: item.email,
+      },
+    });
+  }
 }
 
 module.exports = new ItemsController();
