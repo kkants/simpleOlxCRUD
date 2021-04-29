@@ -12,7 +12,7 @@
 --    id INT NOT NULL AUTO_INCREMENT,
 --    created_at INT NOT NULL,
 --    title VARCHAR(255) NOT NULL,
---    img VARCHAR(255) NOT NULL,
+--    img VARCHAR(255) NULL,
 --    price DECIMAL(10,2),
 --    user_id INT,
 --    PRIMARY KEY (id)
