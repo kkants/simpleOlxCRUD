@@ -25,9 +25,8 @@ class ItemsController {
       next(HttpException(422, 'Something wrong'));
       return;
     }
-    const findId = await ItemModel.findOne({ created_at: created_at });
     return res.json({
-      id: findId.item_id,
+      id: result.insertId,
       created_at: created_at,
       title: title,
       price: price,
