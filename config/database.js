@@ -30,7 +30,6 @@ class DBConnection {
           console.error('Duplicate email');
         }
         console.log(err);
-        console.log('-');
       }
       if (connection) {
         connection.release();
@@ -43,14 +42,12 @@ class DBConnection {
       const callback = (error, result) => {
         if (error) {
           console.log(error);
-          console.log('+');
         }
         resolve(result);
       };
       this.db.execute(sql, values, callback);
     }).catch((err) => {
       console.log(err);
-      console.log('/');
     });
   };
 }

@@ -49,6 +49,9 @@ class ItemsController {
     }
 
     itemsList = itemsList.map((item) => {
+      item.img == null
+        ? (item.img = 'http://localhost:5000/some.jpg')
+        : (item.img = 'http://localhost:5000/' + item.img);
       const { password, ...rest } = item;
       return rest;
     });
@@ -60,12 +63,14 @@ class ItemsController {
       next(new HttpException(404, 'Item not found'));
       return;
     }
+    let { img } = item;
+    if (img == null) img = 'some.jpg';
     res.json({
       id: item.item_id,
       created_at: item.created_at,
       title: item.title,
       price: item.price,
-      image: 'http://localhost:5000/' + 'some.jpg',
+      image: 'http://localhost:5000/' + img,
       user_id: item.user_id,
       user: {
         id: item.id,
@@ -106,12 +111,7 @@ class ItemsController {
       ? 'User updated successfully'
       : 'Updated failed';
     if (message == 'Updated failed') {
-      next(
-        new HttpException(
-          422,
-          'Change something, thise title and price already exist'
-        )
-      );
+      next( new HttpException(422, 'Change something, thise title and price already exist'));
       return;
     }
     return res.json({
@@ -131,6 +131,11 @@ class ItemsController {
   }
 
   async deleteItemById(req, res, next) {
+    const item = await ItemModel.findOne({ item_id: req.params.id });
+    if (!item) {
+      next(new HttpException(404, 'item not found'));
+      return;
+    }
     ////check on ownerAuthorized
 
     if (req.currentUser.id != item.user_id) {
@@ -140,10 +145,6 @@ class ItemsController {
     const result = await ItemModel.delete(req.params.id);
     if (!result) {
       next(new HttpException(404, 'Item not found'));
-      return;
-    }
-    if (req.currentUser.id != item.user_id) {
-      next(new HttpException(403, 'U have no access to do this'));
       return;
     }
     return res.json('Item has been deleted');
@@ -177,7 +178,7 @@ class ItemsController {
       created_at: item.created_at,
       title: item.title,
       price: item.price,
-      image: 'http://localhost:5000/' + item.img,
+      image: 'http://localhost:5000/' + fileName,
       user_id: item.user_id,
       user: {
         id: item.id,

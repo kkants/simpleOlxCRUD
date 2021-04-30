@@ -7,8 +7,6 @@ class ItemModel {
   create = async (title, price, user_id, created_at) => {
     const sql = `INSERT INTO ${this.tableName}
      (title,price,user_id,created_at) VALUES (?,?,?,?)`;
-    console.log(sql);
-    console.log(title, price, user_id, created_at);
     const result = await query(sql, [title, price, user_id, created_at]);
     return result;
   };
