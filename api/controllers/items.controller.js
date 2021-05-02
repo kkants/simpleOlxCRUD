@@ -95,7 +95,7 @@ class ItemsController {
     ////check on ownerAuthorized
 
     if (req.currentUser.id != item.user_id) {
-      next(new HttpException(403, 'U have no access to do this'));
+      next(new HttpException(403, 'You have no access to do this'));
       return;
     }
     const result = await ItemModel.update(req.body, req.params.id);
@@ -105,12 +105,17 @@ class ItemsController {
     }
     const { affectedRows, changedRows } = result;
     const message = !affectedRows
-      ? 'User not found'
+      ? 'Item not found'
       : affectedRows && changedRows
-      ? 'User updated successfully'
+      ? 'Item updated successfully'
       : 'Updated failed';
     if (message == 'Updated failed') {
-      next( new HttpException(422, 'Change something, thise title and price already exist'));
+      next(
+        new HttpException(
+          422,
+          'Change something, thise title and price already exist'
+        )
+      );
       return;
     }
     return res.json({
@@ -138,7 +143,7 @@ class ItemsController {
     ////check on ownerAuthorized
 
     if (req.currentUser.id != item.user_id) {
-      next(new HttpException(403, 'U have no access to do this'));
+      next(new HttpException(403, 'You have no access to do this'));
       return;
     }
     const result = await ItemModel.delete(req.params.id);
@@ -162,7 +167,7 @@ class ItemsController {
     }
     ////check on ownerAuthorized
     if (req.currentUser.id != item.user_id) {
-      next(new HttpException(403, 'U have no access to do this'));
+      next(new HttpException(403, 'You have no access to do this'));
       return;
     }
 
