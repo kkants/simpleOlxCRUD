@@ -1,4 +1,4 @@
-function errorMiddleware(error, req, res, next) {
+function onError(error, req, res, next) {
   let { status = 500, message, data } = error;
 
   console.log(`[Error] ${error}`);
@@ -14,4 +14,4 @@ function errorMiddleware(error, req, res, next) {
   res.status(status).send(message);
 }
 
-module.exports = errorMiddleware;
+module.exports = onError;

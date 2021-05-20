@@ -1,9 +1,11 @@
 const express = require('express');
+const Sentry = require('@sentry/node');
+const Tracing = require('@sentry/tracing');
 const cors = require('cors');
 const fileUpload = require('express-fileupload');
 const HttpException = require('./api/utils/HttpException.utils');
 require('dotenv').config();
-const errorHandler = require('./api/middleware/ErrorHandlingMiddleware');
+const onError = require('./api/middleware/ErrorHandlingMiddleware');
 const itemsRoutes = require('./api/routes/items');
 const userRoutes = require('./api/routes/user');
 const path = require('path');
@@ -11,6 +13,20 @@ const path = require('path');
 const PORT = process.env.PORT || 3000;
 
 const app = express();
+Sentry.init({
+  dsn: process.env.SENTRY,
+  integrations: [
+    // enable HTTP calls tracing
+    new Sentry.Integrations.Http({ tracing: true }),
+    // enable Express.js middleware tracing
+    new Tracing.Integrations.Express({
+      app,
+    }),
+  ],
+  tracesSampleRate: 1.0,
+});
+app.use(Sentry.Handlers.requestHandler());
+
 app.use(express.json());
 app.use(express.static(path.resolve(__dirname, './api', 'static')));
 app.use(fileUpload({}));
@@ -26,7 +42,8 @@ app.all('*', (req, res, next) => {
   next(err);
 });
 
-app.use(errorHandler);
+app.use(Sentry.Handlers.errorHandler());
+app.use(onError);
 
 app.listen(PORT, () => console.log(`Server started on PORT ${PORT}`));
 
